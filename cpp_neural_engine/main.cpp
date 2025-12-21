@@ -1,5 +1,6 @@
 #include <iostream>
-
+#include <cmath>
+#include <fstream>
 
 double relu(double z) {
     return z > 0 ? z : 0;
@@ -15,6 +16,9 @@ struct DenseLayer {
     double cached_input;
     double cached_z;
     bool use_relu;
+
+    double last_dL_dw;
+    double last_dL_db;
     
     DenseLayer(double init_w, double init_b, bool activate) {
         w = init_w;
@@ -39,11 +43,15 @@ struct DenseLayer {
             dL_dz = dL_dz * relu_derivative(cached_z);
         }
         
-        double dL_dw = dL_dz * cached_input;
-        double dL_db = dL_dz;
+        last_dL_dw = dL_dz * cached_input;
+        last_dL_db = dL_dz;
         
-        w = w - learning_rate * dL_dw;
-        b = b - learning_rate * dL_db;
+        w = w - learning_rate * last_dL_dw;
+        b = b - learning_rate * last_dL_db;
+    }
+
+    double get_grad_norm() {
+        return std::sqrt(last_dL_db * last_dL_db + last_dL_dw * last_dL_dw);
     }
 };
 
@@ -59,9 +67,13 @@ int main() {
     double learning_rate = 0.01;
     int epochs = 1000;
     
+    std::ofstream logfile("training_log.csv");
+    logfile << "epoch,loss,w,b,grad_norm\n";
+
     for(int j = 0; j < epochs; j++) {
        
         double total_loss = 0.0;
+        double total_grad_norm = 0.0;
 
         for (int k = 0; k < (sizeof(x_data) / sizeof (x_data[0])); k++) {
             double x = x_data[k];
@@ -75,14 +87,25 @@ int main() {
             double dl_dy_pred = -2 * (y - y_pred);
 
             layer.backward(dl_dy_pred, learning_rate);
+
+            total_grad_norm += layer.get_grad_norm();
         }
 
         total_loss = total_loss / 4;
+        total_grad_norm = total_grad_norm / 4;
+
+        logfile << j << "," << total_loss << "," 
+            << layer.w << "," << layer.b << "," 
+            << total_grad_norm << "\n";
 
         
         if (j % 100 == 0) {
-            std::cout << "ReLU: " << relu << " Epoch " << j << ": Avg Loss = " << total_loss 
-          << ", w = " << layer.w << ", b = " << layer.b << std::endl;
+            std::cout << "Epoch " << j << ": Loss = " << total_loss 
+                  << ", w = " << layer.w << ", b = " << layer.b 
+                  << ", grad_norm = " << total_grad_norm << std::endl;
         }
     }
+
+    logfile.close();
+    std::cout << "Training log saved to training_log.csv" << std::endl;
 }
