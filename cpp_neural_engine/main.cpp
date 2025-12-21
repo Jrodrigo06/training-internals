@@ -7,7 +7,7 @@ int main() {
     double w = 1;
     double b = 1;
 
-    double learning_rate = 0.01;
+    double learning_rate = 0.1;
     int epochs = 1000;
     
     for(int j = 0; j < epochs; j++) {
