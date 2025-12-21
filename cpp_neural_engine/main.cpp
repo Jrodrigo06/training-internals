@@ -1,23 +1,49 @@
 #include <iostream>
 
+
+double relu(double z) {
+    return z > 0 ? z : 0;
+}
+
+double relu_derivative(double z) {
+    return z > 0 ? 1.0 : 0.0;
+}
+
 struct DenseLayer {
     double w;
     double b;
     double cached_input;
+    double cached_z;
+    bool use_relu;
     
-    DenseLayer(double init_w, double init_b) {
+    DenseLayer(double init_w, double init_b, bool activate) {
         w = init_w;
         b = init_b;
+        use_relu = activate;
     }
     
     double forward(double x) {
         cached_input = x;
-        return w * cached_input + b;
+        cached_z = w * cached_input + b;
+
+        if (use_relu) {
+            return relu(cached_z);
+        }
+
+        return cached_z;
     }
     
-    void backward(double grad_from_loss, double learning_rate) {
-        w = w - learning_rate * (cached_input * grad_from_loss);
-        b = b - learning_rate * grad_from_loss;
+    void backward(double dL_d_output, double learning_rate) {
+        double dL_dz = dL_d_output;
+        if (use_relu) {
+            dL_dz = dL_dz * relu_derivative(cached_z);
+        }
+        
+        double dL_dw = dL_dz * cached_input;
+        double dL_db = dL_dz;
+        
+        w = w - learning_rate * dL_dw;
+        b = b - learning_rate * dL_db;
     }
 };
 
@@ -26,7 +52,9 @@ int main() {
     double x_data[] = {1.0, 2.0, 3.0, 4.0};
     double y_data[] = {3.0, 5.0, 7.0, 9.0};
 
-    DenseLayer layer(1.0, 1.0);
+    bool relu = true;
+
+    DenseLayer layer(1.0, -1.0, relu);
 
     double learning_rate = 0.01;
     int epochs = 1000;
@@ -52,9 +80,8 @@ int main() {
         total_loss = total_loss / 4;
 
         
-
         if (j % 100 == 0) {
-            std::cout << "Epoch " << j << ": Avg Loss = " << total_loss 
+            std::cout << "ReLU: " << relu << " Epoch " << j << ": Avg Loss = " << total_loss 
           << ", w = " << layer.w << ", b = " << layer.b << std::endl;
         }
     }
