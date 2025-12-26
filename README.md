@@ -17,6 +17,11 @@ Learning how neural network training actually works by building it from scratch 
 - Implemented ReLU activation with conditional gradient flow
 - Discovered dying ReLU problem through experiments
 
+**Multi-layer network**
+- Built 2-layer architecture: ReLU layer → linear output layer
+- Added gradient norm tracking to monitor training health
+- Logs training metrics to CSV for analysis
+
 ## Experiments/Tests
 
 **Learning rate sensitivity**
@@ -30,8 +35,13 @@ Learning how neural network training actually works by building it from scratch 
 - Init `w=1.0, b=-1.0` + ReLU: neuron survives (3/4 points have z > 0, providing gradient)
 - Insight: neuron only dies if z ≤ 0 for ALL training data
 
+**Visualization**
+- Python script plots loss curves, parameter trajectories, and gradient norms
+- Helps diagnose training issues (dead neurons, divergence, convergence)
+
 ## Running it
 ```bash
 cd cpp_neural_engine
 g++ main.cpp -o train && ./train
+python ../data_visualization/visualization.py
 ```

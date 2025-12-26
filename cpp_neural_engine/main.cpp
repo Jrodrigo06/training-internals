@@ -37,7 +37,7 @@ struct DenseLayer {
         return cached_z;
     }
     
-    void backward(double dL_d_output, double learning_rate) {
+    double backward(double dL_d_output) {
         double dL_dz = dL_d_output;
         if (use_relu) {
             dL_dz = dL_dz * relu_derivative(cached_z);
@@ -45,9 +45,13 @@ struct DenseLayer {
         
         last_dL_dw = dL_dz * cached_input;
         last_dL_db = dL_dz;
-        
-        w = w - learning_rate * last_dL_dw;
-        b = b - learning_rate * last_dL_db;
+        double dL_dx = dL_dz * w;
+        return dL_dx;
+    }
+    
+    void update_params(double avg_dw, double avg_db, double learning_rate) {
+        w = w - learning_rate * avg_dw;
+        b = b - learning_rate * avg_db;
     }
 
     double get_grad_norm() {
@@ -62,47 +66,71 @@ int main() {
 
     bool relu = true;
 
-    DenseLayer layer(1.0, -1.0, relu);
+    DenseLayer layer1 = DenseLayer(1.0, 1.0, relu);
+    DenseLayer layer2 = DenseLayer(1.0, 1.0, false);
 
     double learning_rate = 0.01;
     int epochs = 1000;
     
-    std::ofstream logfile("training_log.csv");
-    logfile << "epoch,loss,w,b,grad_norm\n";
+    std::ofstream logfile("../data/training_log_dead_neuron.csv");
+    logfile << "epoch,loss,w1,b1,w2,b2,grad_norm\n";
 
+    int N = sizeof(x_data) / sizeof(x_data[0]);
+    
     for(int j = 0; j < epochs; j++) {
        
         double total_loss = 0.0;
-        double total_grad_norm = 0.0;
+        double sum_dW1 = 0.0;
+        double sum_db1 = 0.0;
+        double sum_dW2 = 0.0;
+        double sum_db2 = 0.0;
 
-        for (int k = 0; k < (sizeof(x_data) / sizeof (x_data[0])); k++) {
+        for (int k = 0; k < N; k++) {
             double x = x_data[k];
             double y = y_data[k];
 
-            double y_pred = layer.forward(x);
+            double h = layer1.forward(x);
+            double y_pred = layer2.forward(h);
+
 
             double loss = (y - y_pred) * (y - y_pred);
             total_loss += loss;
 
-            double dl_dy_pred = -2 * (y - y_pred);
+            double dl_dy_pred = 2.0 * (y_pred - y);
 
-            layer.backward(dl_dy_pred, learning_rate);
+            double dl_dh = layer2.backward(dl_dy_pred);
 
-            total_grad_norm += layer.get_grad_norm();
+            layer1.backward(dl_dh);
+            
+            sum_dW1 += layer1.last_dL_dw;
+            sum_db1 += layer1.last_dL_db;
+            sum_dW2 += layer2.last_dL_dw;
+            sum_db2 += layer2.last_dL_db;
         }
 
-        total_loss = total_loss / 4;
-        total_grad_norm = total_grad_norm / 4;
+        double avg_dW1 = sum_dW1 / N;
+        double avg_db1 = sum_db1 / N;
+        double avg_dW2 = sum_dW2 / N;
+        double avg_db2 = sum_db2 / N;
+        
+        layer1.update_params(avg_dW1, avg_db1, learning_rate);
+        layer2.update_params(avg_dW2, avg_db2, learning_rate);
+        
+        double grad_norm = std::sqrt(avg_dW1 * avg_dW1 + avg_db1 * avg_db1 + avg_dW2 * avg_dW2 + avg_db2 * avg_db2);
+        
+        double avg_loss = total_loss / N;
 
-        logfile << j << "," << total_loss << "," 
-            << layer.w << "," << layer.b << "," 
-            << total_grad_norm << "\n";
+        logfile << j << "," << avg_loss << "," 
+            << layer1.w << "," << layer1.b << "," 
+            << layer2.w << "," << layer2.b << "," 
+            << grad_norm << "\n";
 
         
         if (j % 100 == 0) {
-            std::cout << "Epoch " << j << ": Loss = " << total_loss 
-                  << ", w = " << layer.w << ", b = " << layer.b 
-                  << ", grad_norm = " << total_grad_norm << std::endl;
+            std::cout << "Epoch " << j << ": Loss = " << avg_loss 
+                  << ", w1 = " << layer1.w << ", b1 = " << layer1.b 
+                  << ", w2 = " << layer2.w << ", b2 = " << layer2.b 
+                  << ", grad_norm = " << grad_norm << std::endl;
         }
     }
 
